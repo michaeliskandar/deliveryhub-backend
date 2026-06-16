@@ -1,0 +1,453 @@
+{
+  "info": {
+    "name": "Logistics Backend API",
+    "description": "Full API collection for Logistics Backend — Node.js + Express + MongoDB",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api/v1" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" },
+    { "key": "shipmentId", "value": "" },
+    { "key": "trackingNumber", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Register (Customer)",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test User\",\n  \"email\": \"test@example.com\",\n  \"password\": \"Test@1234\",\n  \"confirmPassword\": \"Test@1234\",\n  \"role\": \"customer\",\n  \"phone\": \"+14155550199\"\n}" }
+          }
+        },
+        {
+          "name": "Register (Captain)",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/register",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Test Captain\",\n  \"email\": \"testcaptain@example.com\",\n  \"password\": \"Test@1234\",\n  \"confirmPassword\": \"Test@1234\",\n  \"role\": \"captain\"\n}" }
+          }
+        },
+        {
+          "name": "Login",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data) {", "  pm.collectionVariables.set('accessToken', r.data.accessToken);", "  pm.collectionVariables.set('refreshToken', r.data.refreshToken);", "}"] } }],
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"alice@example.com\",\n  \"password\": \"Admin@1234\"\n}" }
+          }
+        },
+        {
+          "name": "Login as Admin",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data) {", "  pm.collectionVariables.set('accessToken', r.data.accessToken);", "  pm.collectionVariables.set('refreshToken', r.data.refreshToken);", "}"] } }],
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"admin@logistics.com\",\n  \"password\": \"Admin@1234\"\n}" }
+          }
+        },
+        {
+          "name": "Login as Captain",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data) {", "  pm.collectionVariables.set('accessToken', r.data.accessToken);", "}"] } }],
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"captain1@logistics.com\",\n  \"password\": \"Admin@1234\"\n}" }
+          }
+        },
+        {
+          "name": "Login as Office",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data) pm.collectionVariables.set('accessToken', r.data.accessToken);"] } }],
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"office@logistics.com\",\n  \"password\": \"Admin@1234\"\n}" }
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/verify-otp",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@example.com\",\n  \"otp\": \"123456\",\n  \"type\": \"email_verification\"\n}" }
+          }
+        },
+        {
+          "name": "Resend OTP",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/resend-otp",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@example.com\",\n  \"type\": \"email_verification\"\n}" }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/forgot-password",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"alice@example.com\"\n}" }
+          }
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/reset-password",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"alice@example.com\",\n  \"otp\": \"123456\",\n  \"newPassword\": \"NewPass@1234\",\n  \"confirmPassword\": \"NewPass@1234\"\n}" }
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data) pm.collectionVariables.set('accessToken', r.data.accessToken);"] } }],
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/refresh-token",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}" }
+          }
+        },
+        {
+          "name": "Get Me",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/auth/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "PATCH", "url": "{{baseUrl}}/auth/change-password",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"Admin@1234\",\n  \"newPassword\": \"NewPass@1234\",\n  \"confirmPassword\": \"NewPass@1234\"\n}" }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/auth/logout",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "👥 Users (Admin)",
+      "item": [
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/users/?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["users", ""], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "role", "value": "customer", "disabled": true }, { "key": "status", "value": "active", "disabled": true }] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "User Stats",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/users/stats",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH", "url": "{{baseUrl}}/users/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Updated Name\",\n  \"phone\": \"+14155550200\"\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "📦 Shipments",
+      "item": [
+        {
+          "name": "Create Shipment",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if (r.data && r.data._id) {", "  pm.collectionVariables.set('shipmentId', r.data._id);", "  pm.collectionVariables.set('trackingNumber', r.data.trackingNumber);", "}"] } }],
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/shipments/",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"origin\": {\n    \"street\": \"10 Main St\",\n    \"city\": \"Brooklyn\",\n    \"country\": \"USA\",\n    \"contactName\": \"Alice\",\n    \"contactPhone\": \"+14155550100\"\n  },\n  \"destination\": {\n    \"street\": \"55 Park Ave\",\n    \"city\": \"Manhattan\",\n    \"country\": \"USA\",\n    \"contactName\": \"Bob\",\n    \"contactPhone\": \"+14155550200\"\n  },\n  \"package\": {\n    \"weight\": 2.5,\n    \"description\": \"Electronics\",\n    \"isFragile\": true,\n    \"dimensions\": { \"length\": 30, \"width\": 20, \"height\": 15 }\n  },\n  \"isInsured\": true,\n  \"notes\": \"Handle with care\"\n}" }
+          }
+        },
+        {
+          "name": "My Shipments",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/shipments/my?page=1&limit=10", "host": ["{{baseUrl}}"], "path": ["shipments", "my"], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "10" }] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Get Shipment by ID",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/shipments/{{shipmentId}}",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Pay for Shipment",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/shipments/{{shipmentId}}/pay",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "All Shipments (Office/Admin)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/shipments/?page=1&limit=20", "host": ["{{baseUrl}}"], "path": ["shipments", ""], "query": [{ "key": "page", "value": "1" }, { "key": "limit", "value": "20" }, { "key": "status", "value": "pending", "disabled": true }] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Assign Captain",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/shipments/{{shipmentId}}/assign",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"captainId\": \"REPLACE_WITH_CAPTAIN_USER_ID\"\n}" }
+          }
+        },
+        {
+          "name": "Cancel Shipment",
+          "request": {
+            "method": "PATCH", "url": "{{baseUrl}}/shipments/{{shipmentId}}/cancel",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Shipment Stats",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/shipments/stats",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "📍 Tracking",
+      "item": [
+        {
+          "name": "Public Track by Number",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/tracking/track/{{trackingNumber}}"
+          }
+        },
+        {
+          "name": "Full Tracking History",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/tracking/{{shipmentId}}/history",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Update Status (Captain)",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/tracking/{{shipmentId}}/status",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"picked_up\",\n  \"description\": \"Package collected from sender location.\",\n  \"location\": {\n    \"city\": \"Brooklyn\",\n    \"country\": \"USA\",\n    \"coordinates\": { \"lat\": 40.6782, \"lng\": -73.9442 }\n  },\n  \"notes\": \"Package in good condition.\"\n}" }
+          }
+        },
+        {
+          "name": "Update Status → In Transit",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/tracking/{{shipmentId}}/status",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"in_transit\",\n  \"description\": \"Package is on its way to destination.\",\n  \"location\": { \"city\": \"Queens\", \"country\": \"USA\" }\n}" }
+          }
+        },
+        {
+          "name": "Update Status → Delivered",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/tracking/{{shipmentId}}/status",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"delivered\",\n  \"description\": \"Package delivered to recipient.\",\n  \"location\": { \"city\": \"Manhattan\", \"country\": \"USA\" }\n}" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "💰 Wallet",
+      "item": [
+        {
+          "name": "My Wallet",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/wallet/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Top Up My Wallet",
+          "request": {
+            "method": "POST", "url": "{{baseUrl}}/wallet/me/topup",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"amount\": 100,\n  \"description\": \"Self top-up\"\n}" }
+          }
+        },
+        {
+          "name": "All Wallets (Admin)",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/wallet/",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🚚 Captain",
+      "item": [
+        {
+          "name": "My Captain Profile",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/captains/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Update Captain Profile",
+          "request": {
+            "method": "PATCH", "url": "{{baseUrl}}/captains/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"vehicleType\": \"van\",\n  \"vehiclePlate\": \"NYC-9999\",\n  \"licenseNumber\": \"LIC-XYZ\"\n}" }
+          }
+        },
+        {
+          "name": "Set Availability",
+          "request": {
+            "method": "PATCH", "url": "{{baseUrl}}/captains/me/availability",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"isAvailable\": true\n}" }
+          }
+        },
+        {
+          "name": "My Assigned Shipments",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/captains/me/shipments",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "All Captains (Office/Admin)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{baseUrl}}/captains/?isAvailable=true", "host": ["{{baseUrl}}"], "path": ["captains", ""], "query": [{ "key": "isAvailable", "value": "true" }] },
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🏢 Office",
+      "item": [
+        {
+          "name": "My Office Profile",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/offices/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Update Office Profile",
+          "request": {
+            "method": "PATCH", "url": "{{baseUrl}}/offices/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"officeName\": \"North Branch\",\n  \"address\": { \"street\": \"200 Office Blvd\", \"city\": \"New York\", \"country\": \"USA\" }\n}" }
+          }
+        },
+        {
+          "name": "Managed Shipments",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/offices/me/shipments",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Office Report",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/offices/me/report",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 Customer",
+      "item": [
+        {
+          "name": "My Customer Profile",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/customers/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Update Customer Profile",
+          "request": {
+            "method": "PATCH", "url": "{{baseUrl}}/customers/me",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"address\": { \"street\": \"10 Main St\", \"city\": \"Brooklyn\", \"country\": \"USA\" },\n  \"preferredCurrency\": \"USD\"\n}" }
+          }
+        },
+        {
+          "name": "My Shipments (Customer)",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/customers/me/shipments",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "All Customers (Office/Admin)",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/customers/",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "🛡️ Admin",
+      "item": [
+        {
+          "name": "Dashboard Stats",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/admin/dashboard",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "System Health",
+          "request": {
+            "method": "GET", "url": "{{baseUrl}}/admin/health",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Suspend User",
+          "request": {
+            "method": "PATCH", "url": "{{baseUrl}}/admin/users/REPLACE_USER_ID/suspend",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        },
+        {
+          "name": "Activate User",
+          "request": {
+            "method": "PATCH", "url": "{{baseUrl}}/admin/users/REPLACE_USER_ID/activate",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }]
+          }
+        }
+      ]
+    },
+    {
+      "name": "❤️ Health",
+      "item": [
+        {
+          "name": "API Health Check",
+          "request": { "method": "GET", "url": "{{baseUrl}}/health" }
+        }
+      ]
+    }
+  ]
+}
