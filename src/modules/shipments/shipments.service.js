@@ -1,1 +1,170 @@
-// TODO: src/modules/shipments/shipments.service.js — لسه فاضي، هنملاه مع بعض
+import Shipment from "../../database/models/Shipment.model.js";
+import ApiError from "../../shared/utils/ApiError.js";
+import { getPagination } from "../../shared/utils/pagination.js";
+import { SHIPMENT_STATUS } from "../../shared/constants/shipmentStatus.js";
+
+const geocodeAddress = async (address) => {
+    // Nominatim - OpenStreetMap (مجاني بدون API key)
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1`;
+
+    const res = await fetch(url, {
+        headers: { "User-Agent": "DeliverHub/1.0" },
+    });
+
+    const data = await res.json();
+
+    if (!data || data.length === 0) {
+        throw new ApiError(400, `Cannot geocode address: ${address}`);
+    }
+
+    return [parseFloat(data[0].lon), parseFloat(data[0].lat)];
+};
+
+const calcDistanceKm = ([lng1, lat1], [lng2, lat2]) => {
+    const R = 6371;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const calcEstimatedPrice = (distanceKm, weight, deliverySpeed) => {
+    const base = 10;
+    const perKm = 2;
+    const perKg = 1.5;
+    const speedMultiplier = { standard: 1, express: 1.5, scheduled: 1.2 };
+
+    const price =
+        (base + distanceKm * perKm + weight * perKg) *
+        (speedMultiplier[deliverySpeed] ?? 1);
+
+    return {
+        estimatedPriceMin: Math.round(price * 0.9),
+        estimatedPriceMax: Math.round(price * 1.1),
+    };
+};
+
+// ── Service ───────────────────────────────────────────────────
+
+const createShipment = async (customerId, body) => {
+    const {
+        pickupAddress,
+        deliveryAddress,
+        weight,
+        packageType,
+        deliverySpeed,
+        scheduledDate,
+        notes,
+    } = body;
+
+    const [pickupCoords, deliveryCoords] = await Promise.all([
+        geocodeAddress(pickupAddress),
+        geocodeAddress(deliveryAddress),
+    ]);
+
+    const distanceKm = calcDistanceKm(pickupCoords, deliveryCoords);
+    const { estimatedPriceMin, estimatedPriceMax } = calcEstimatedPrice(
+        distanceKm,
+        weight,
+        deliverySpeed,
+    );
+
+    const shipment = await Shipment.create({
+        customer: customerId,
+        pickupAddress,
+        deliveryAddress,
+        pickupCoords,
+        deliveryCoords,
+        weight,
+        packageType,
+        deliverySpeed,
+        scheduledDate: scheduledDate ?? null,
+        notes: notes ?? null,
+        distanceKm: Math.round(distanceKm * 10) / 10,
+        estimatedPriceMin,
+        estimatedPriceMax,
+    });
+
+    return shipment;
+};
+
+const getShipmentsByCustomer = async (
+    customerId,
+    statusFilter,
+    { page, limit },
+) => {
+    const { skip, take } = getPagination(page, limit);
+
+    const query = { customer: customerId };
+    if (statusFilter) query.status = { $in: statusFilter };
+
+    const [shipments, total] = await Promise.all([
+        Shipment.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(take)
+            .populate("captain", "name phone avatar rating reviewsCount"),
+        Shipment.countDocuments(query),
+    ]);
+
+    return { shipments, total, page: Number(page) || 1, limit: take };
+};
+
+const getShipmentById = async (id, customerId) => {
+    const shipment = await Shipment.findOne({ _id: id, customer: customerId })
+        .populate("captain", "name phone avatar rating reviewsCount")
+        .populate("selectedOfferId");
+
+    return shipment;
+};
+
+const cancelShipment = async (id, customerId) => {
+    const shipment = await Shipment.findOne({ _id: id, customer: customerId });
+
+    if (!shipment) throw new ApiError(404, "Shipment not found");
+
+    const cancellable = [
+        SHIPMENT_STATUS.PENDING_OFFERS,
+        SHIPMENT_STATUS.CAPTAIN_ASSIGNMENT,
+    ];
+
+    if (!cancellable.includes(shipment.status)) {
+        throw new ApiError(400, "Cannot cancel shipment at this stage");
+    }
+
+    shipment.status = "cancelled";
+    await shipment.save();
+
+    return shipment;
+};
+
+const getAllShipments = async (statusFilter, { page, limit }) => {
+    const { skip, take } = getPagination(page, limit);
+
+    const query = {};
+    if (statusFilter) query.status = { $in: statusFilter };
+
+    const [shipments, total] = await Promise.all([
+        Shipment.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(take)
+            .populate("customer", "name phone")
+            .populate("captain", "name phone"),
+        Shipment.countDocuments(query),
+    ]);
+
+    return { shipments, total, page: Number(page) || 1, limit: take };
+};
+
+export default {
+    createShipment,
+    getShipmentsByCustomer,
+    getShipmentById,
+    cancelShipment,
+    getAllShipments,
+};
