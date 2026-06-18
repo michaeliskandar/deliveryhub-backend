@@ -1,3 +1,4 @@
+
 import mongoose from "mongoose";
 
 const userSchema = new mongoose.Schema(
@@ -35,11 +36,18 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
-    role: {
-      type: String,
-      enum: ["customer", "driver", "admin"],
-      default: "customer",
-    },
+    passwordHash: { type: String, required: true, select: false },
+        role: {
+            type: String,
+            enum: Object.values(ROLES),
+            default: ROLES.CUSTOMER,
+            required: true,
+        },
+        
+        pushTokens: { type: [String], default: [] },
+        isVerified: { type: Boolean, default: false },
+       
+   
     profileImage: {
       type: String,
       default: null,
@@ -57,4 +65,4 @@ const userSchema = new mongoose.Schema(
 
 const User = mongoose.model("User", userSchema);
 
-export default User;
+export default User,
