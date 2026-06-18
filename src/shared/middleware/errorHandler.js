@@ -1,16 +1,30 @@
-import ApiError from "../utils/ApiError.js";
 
 export const errorHandler = (err, req, res, next) => {
-    if (err instanceof ApiError) {
-        return res.status(err.statusCode).json({
-            status: err.status,
+    // Mongoose validation errors
+    if (err.name === "ValidationError") {
+        return res.status(400).json({
+            status: "fail",
             message: err.message,
         });
     }
 
-    console.error(err);
-    return res.status(500).json({
-        status: "error",
-        message: "Internal server error",
+    // Mongoose bad ObjectId
+    if (err.name === "CastError") {
+        return res.status(400).json({
+            status: "fail",
+            message: "Invalid identifier format",
+        });
+    }
+
+    const statusCode = err.statusCode || 500;
+    const status = err.status || (statusCode >= 500 ? "error" : "fail");
+
+    if (!err.isOperational) {
+        console.error("Unhandled error:", err);
+    }
+
+    return res.status(statusCode).json({
+        status,
+        message: err.isOperational ? err.message : "Something went wrong on our end",
     });
 };

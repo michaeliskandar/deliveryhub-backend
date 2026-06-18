@@ -1,9 +1,8 @@
-import dotenv from "dotenv";
-dotenv.config();
+import "dotenv/config";
 
 export const ENV = {
-    PORT: process.env.PORT || 3000,
-    MONGO_URI: process.env.MONGO_URI,
+    PORT: process.env.PORT || 4000,
+    MONGO_URI: process.env.MONGO_URI || "mongodb://localhost:27017/deliverhub",
     JWT_SECRET: process.env.JWT_SECRET,
-    NODE_ENV: process.env.NODE_ENV || "development",
+    CLIENT_ORIGIN: process.env.CLIENT_ORIGIN || "*",
 };
