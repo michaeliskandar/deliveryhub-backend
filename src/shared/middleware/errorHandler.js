@@ -1,15 +1,32 @@
 import logger from './logger.js';
 
-const errorHandler = (err, req, res, next) => {
-    logger.error(err.message);
+export const errorHandler = (err, req, res, next) => {
+    // Mongoose validation errors
+    if (err.name === "ValidationError") {
+        return res.status(400).json({
+            status: "fail",
+            message: err.message,
+        });
+    }
+
+    // Mongoose bad ObjectId
+    if (err.name === "CastError") {
+        return res.status(400).json({
+            status: "fail",
+            message: "Invalid identifier format",
+        });
+    }
 
     const statusCode = err.statusCode || 500;
-    const message = err.message || 'Internal Server Error';
+    const status = err.status || (statusCode >= 500 ? "error" : "fail");
 
-    res.status(statusCode).json({
-        success: false,
-        message: message,
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    if (!err.isOperational) {
+        console.error("Unhandled error:", err);
+    }
+
+    return res.status(statusCode).json({
+        status,
+        message: err.isOperational ? err.message : "Something went wrong on our end",
     });
 };
 

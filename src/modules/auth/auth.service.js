@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import nodemailer from 'nodemailer';
-import User from '../../database/models/User.js';
+// import User from '../../database/models/User.js';
+import UserModel from '../../database/models/User.model.js';
 import Driver from '../../database/models/Driver.js';
 import Office from '../../database/models/Office.js';
 import Wallet from '../../database/models/Wallet.js';
@@ -24,7 +25,7 @@ const transporter = nodemailer.createTransport({
 export async function register(payload) {
     const { fullName, email, phone, password, role, vehicleType, plateNumber, businessName, licenseNumber, officeAddress } = payload;
 
-    const existing = await User.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
+    const existing = await UserModel.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
     if (existing) {
         throw ApiError.conflict(
             existing.email === email.toLowerCase() ? 'Email is already registered' : 'Phone number is already registered'
@@ -91,7 +92,7 @@ export async function register(payload) {
 }
 
 export async function login({ emailOrPhone, password }) {
-    const user = await User.findOne({
+    const user = await UserModel.findOne({
         $or: [
             { email: emailOrPhone?.toLowerCase() },
             { phone: emailOrPhone }
@@ -121,7 +122,7 @@ export async function refresh(refreshTokenValue) {
         throw ApiError.unauthorized('Invalid or expired refresh token');
     }
 
-    const user = await User.findById(decoded.id).select('+refreshTokens');
+    const user = await UserModel.findById(decoded.id).select('+refreshTokens');
     if (!user || !(user.refreshTokens || []).includes(refreshTokenValue)) {
         throw ApiError.unauthorized('Refresh token has been revoked');
     }
@@ -171,14 +172,14 @@ export async function sendEmailOtp(user, purpose) {
 }
 
 export async function resendOtp(phone) {
-    const user = await User.findOne({ phone });
+    const user = await UserModel.findOne({ phone });
     if (!user) throw ApiError.notFound('No account found with this phone number');
     await sendEmailOtp(user, user.isPhoneVerified ? 'login' : 'email_verification');
     return { message: 'OTP sent to your registered email' };
 }
 
 export async function verifyPhoneOtp({ phone, otp }) {
-    const user = await User.findOne({ phone }).select('+otpHash +otpExpires');
+    const user = await UserModel.findOne({ phone }).select('+otpHash +otpExpires');
     if (!user) throw ApiError.notFound('No account found with this phone number');
 
     const result = checkOtp(otp, user.otpHash, user.otpExpires);
@@ -197,7 +198,7 @@ export async function verifyPhoneOtp({ phone, otp }) {
 }
 
 export async function forgotPassword(email) {
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await UserModel.findOne({ email: email.toLowerCase() });
     if (!user) {
         return { message: 'If an account exists, a reset link has been sent' };
     }
@@ -213,7 +214,7 @@ export async function forgotPassword(email) {
 
 export async function resetPassword({ token, newPassword }) {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
-    const user = await User.findOne({
+    const user = await UserModel.findOne({
         passwordResetTokenHash: tokenHash,
         passwordResetExpires: { $gt: new Date() },
     }).select('+passwordResetTokenHash +passwordResetExpires +refreshTokens');
@@ -230,7 +231,7 @@ export async function resetPassword({ token, newPassword }) {
 }
 
 export async function changePassword(userId, { currentPassword, newPassword }) {
-    const user = await User.findById(userId).select('+password +refreshTokens');
+    const user = await UserModel.findById(userId).select('+password +refreshTokens');
     if (!(await user.comparePassword(currentPassword))) {
         throw ApiError.badRequest('Current password is incorrect');
     }
