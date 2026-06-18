@@ -1,1 +1,6 @@
-// TODO: src/shared/constants/roles.js — لسه فاضي، هنملاه مع بعض
+export const ROLES = {
+    CUSTOMER: "customer",
+    CAPTAIN: "captain",
+    OFFICE: "office",
+    ADMIN: "admin",
+};

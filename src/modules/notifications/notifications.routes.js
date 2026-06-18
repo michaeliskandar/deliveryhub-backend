@@ -1,1 +1,24 @@
-// TODO: src/modules/notifications/notifications.routes.js — لسه فاضي، هنملاه مع بعض
+import { Router } from "express";
+import { authenticate } from "../../shared/middleware/authenticate.js";
+import { validate } from "../../shared/middleware/validate.js";
+import {
+    listNotificationsQuerySchema,
+    notificationIdParamSchema,
+} from "./notifications.validation.js";
+import {
+    getMyNotifications,
+    getUnreadCount,
+    markAsRead,
+    markAllAsRead,
+} from "./notifications.controller.js";
+
+const router = Router();
+
+router.use(authenticate);
+
+router.get("/", validate(listNotificationsQuerySchema, "query"), getMyNotifications);
+router.get("/unread-count", getUnreadCount);
+router.patch("/read-all", markAllAsRead);
+router.patch("/:id/read", validate(notificationIdParamSchema, "params"), markAsRead);
+
+export default router;
