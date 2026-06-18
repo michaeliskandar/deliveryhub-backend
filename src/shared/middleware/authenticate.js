@@ -1,7 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { ENV } from '../../config/env.js';
 import ApiError from '../utils/ApiError.js';
-import User from '../../database/models/User.js';
+// import User from '../../database/models/User.js';
+import UserModel from '../../database/models/User.model.js';
 
 export const authenticate = async (req, res, next) => {
     try {
@@ -13,7 +14,7 @@ export const authenticate = async (req, res, next) => {
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, ENV.JWT_SECRET);
 
-        const user = await User.findById(decoded.id);
+        const user = await UserModel.findById(decoded.id);
         if (!user) throw ApiError.unauthorized('Invalid token. User not found.');
 
         if (user.status === 'suspended' || user.status === 'banned') {
