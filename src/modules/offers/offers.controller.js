@@ -19,7 +19,11 @@ const getShipmentOffers = async (req, res, next) => {
 const createOffer = async (req, res, next) => {
   try {
     const offererId = req.user.id;
-    const offererType = req.user.role === "driver" ? "driver" : "office";
+    const roleToOffererType = {
+      driver: "driver",
+      office: "office",
+    };
+    const offererType = roleToOffererType[req.user.role] ?? "office";
     const offer = await offersService.createOffer(
       offererId,
       offererType,

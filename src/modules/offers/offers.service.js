@@ -1,6 +1,8 @@
 import Offer from "../../database/models/Offer.model.js";
 import Shipment from "../../database/models/Shipment.model.js";
 import ApiError from "../../shared/utils/ApiError.js";
+import { SHIPMENT_STATUS } from "../../shared/constants/shipmentStatus.js";
+import trackingService from "../tracking/tracking.service.js";
 
 const getShipmentOffers = async (userId, shipmentId) => {
   const shipment = await Shipment.findById(shipmentId);
@@ -29,7 +31,7 @@ const createOffer = async (offererId, offererType, offerData) => {
 
   const shipment = await Shipment.findById(shipmentId);
   if (!shipment) throw new ApiError(404, "Shipment not found");
-  if (shipment.status !== "pending")
+  if (shipment.status !== SHIPMENT_STATUS.PENDING_OFFERS)
     throw new ApiError(400, "Shipment is no longer accepting offers");
 
   const existing = await Offer.findOne({
@@ -60,7 +62,7 @@ const acceptOffer = async (userId, offerId) => {
   if (shipment.customer.toString() !== userId.toString())
     throw new ApiError(403, "You are not allowed to accept this offer");
 
-  if (shipment.status !== "pending")
+  if (shipment.status !== SHIPMENT_STATUS.PENDING_OFFERS)
     throw new ApiError(400, "Shipment is no longer accepting offers");
 
   offer.status = "accepted";
@@ -71,7 +73,13 @@ const acceptOffer = async (userId, offerId) => {
     { status: "rejected" },
   );
 
-  await Shipment.findByIdAndUpdate(shipment._id, { status: "in_progress" });
+  await Shipment.findByIdAndUpdate(shipment._id, {
+    status: SHIPMENT_STATUS.CAPTAIN_ASSIGNMENT,
+    captain: offer.offerer,
+    selectedOfferId: offer._id,
+  });
+
+  await trackingService.initTracking(shipment._id, offer.offerer);
 
   return offer;
 };

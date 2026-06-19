@@ -113,7 +113,7 @@ const getShipmentsByCustomer = async (
 
 const getShipmentById = async (id, customerId) => {
     const shipment = await Shipment.findOne({ _id: id, customer: customerId })
-        .populate("captain", "name phone avatar rating reviewsCount")
+        .populate("captain", "fullName phone profileImage")
         .populate("selectedOfferId");
 
     return shipment;
@@ -150,8 +150,8 @@ const getAllShipments = async (statusFilter, { page, limit }) => {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(take)
-            .populate("customer", "name phone")
-            .populate("captain", "name phone"),
+            .populate("customer", "fullName phone")
+            .populate("captain", "fullName phone"),
         Shipment.countDocuments(query),
     ]);
 

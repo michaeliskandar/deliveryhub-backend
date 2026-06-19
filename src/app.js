@@ -1,31 +1,20 @@
 import express from "express";
 import router from "./routes/index.js";
-import errorHandler from './shared/middleware/errorHandler.js';
+import errorHandler from "./shared/middleware/errorHandler.js";
+
 const app = express();
 
+// Body parsers
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Health check
-
-// Routes
-app.use("/api", router);
-
-
-// export default app;
-
-
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", message: "Server is running" });
 });
 
-
-
-// Middleware
-
-app.use(express.urlencoded({ extended: true }));
-
 // Routes
-
+app.use("/api", router);
 
 // Global Error Handler
 app.use(errorHandler);

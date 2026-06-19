@@ -26,13 +26,11 @@ import {
 } from "./support.controller.js";
 import { validate } from "../../shared/middleware/validate.js";
 import { createTicketSchema } from "./support.validation.js";
+import { authenticate } from "../../shared/middleware/authenticate.js";
 
 const router = Router();
 
-router.use((req, res, next) => {
-    req.user = { _id: "676f1234567890abcdef1234", role: "customer" };
-    next();
-});
+router.use(authenticate);
 
 router.post("/", validate(createTicketSchema), createTicket);
 router.get("/", getMyTickets);

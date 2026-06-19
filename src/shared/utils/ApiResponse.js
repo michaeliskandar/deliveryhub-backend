@@ -1,4 +1,12 @@
 class ApiResponse {
+    static success(data = null, message = "Success") {
+        return {
+            success: true,
+            message,
+            data,
+        };
+    }
+
     static send(res, statusCode, message, data = null) {
         const response = {
             success: statusCode >= 200 && statusCode < 300,
