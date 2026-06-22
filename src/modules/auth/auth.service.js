@@ -16,6 +16,7 @@ import {
 } from "../../shared/utils/otp.js";
 import logger from "../../shared/middleware/logger.js";
 import { ENV } from "../../config/env.js";
+import { ROLES } from "../../shared/constants/roles.js";
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -134,6 +135,33 @@ export async function login({ emailOrPhone, password }) {
   return { user: user.toSafeJSON(), tokens };
 }
 
+export async function adminLogin({ emailOrPhone, password }) {
+  const user = await User.findOne({
+    $or: [{ email: emailOrPhone?.toLowerCase() }, { phone: emailOrPhone }],
+  }).select("+password +refreshTokens");
+
+  if (!user || !(await user.comparePassword(password))) {
+    throw ApiError.unauthorized("Invalid credentials");
+  }
+  if (user.role !== ROLES.ADMIN) {
+    throw ApiError.forbidden("This account does not have admin access");
+  }
+  if (user.status === "suspended" || user.status === "banned") {
+    throw ApiError.forbidden(
+      `Your account is ${user.status}. Contact support.`,
+    );
+  }
+
+  const tokens = issueTokenPair({ id: user._id, role: user.role });
+  user.refreshTokens = [
+    ...(user.refreshTokens || []).slice(-4),
+    tokens.refreshToken,
+  ];
+  user.lastLoginAt = new Date();
+  await user.save();
+
+  return { user: user.toSafeJSON(), tokens };
+}
 export async function refresh(refreshTokenValue) {
   let decoded;
   try {

@@ -9,6 +9,7 @@ import supportRoutes from "../modules/support/support.routes.js";
 import trackingRoutes from "../modules/tracking/tracking.routes.js";
 import userRoutes from "../modules/users/users.routes.js";
 import walletRoutes from "../modules/wallet/wallet.routes.js";
+import driversRoutes from "../modules/drivers/drivers.routes.js";
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use("/support", supportRoutes);
 router.use("/tracking", trackingRoutes);
 router.use("/users", userRoutes);
 router.use("/wallet", walletRoutes);
+router.use("/drivers", driversRoutes);
 
 export default router;
