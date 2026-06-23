@@ -11,7 +11,6 @@ import { authorize } from "../../shared/middleware/authorize.js";
 import { validate } from "../../shared/middleware/validate.js";
 import { ROLES } from "../../shared/constants/roles.js";
 import { createShipmentSchema } from "./shipments.validation.js";
-import { ROLES } from "../../shared/constants/roles.js";
 
 const router = Router();
 
