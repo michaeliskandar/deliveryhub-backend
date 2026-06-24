@@ -1,7 +1,5 @@
 import { Router } from "express";
-import {
-    * as Y
-    from "./shipments.controller.js";
+import * as Y from "./shipments.controller.js";
 
 import {
   createShipmentSchema,
@@ -16,21 +14,22 @@ const router = Router();
 
 router.use(authenticate);
 
-router.get("/admin/all", authorize(ROLES.ADMIN), getAllShipments);
+router.get("/admin/all", authorize(ROLES.ADMIN), Y.getAllShipments);
 router.patch(
   "/admin/:id/status",
   authorize(ROLES.ADMIN),
   validate(updateShipmentStatusSchema),
   Y.updateShipmentStatus,
-router.get(
-    "/available",
-    authorize(ROLES.DRIVER, ROLES.OFFICE),
-    Y.getAvailableShipments,
 );
 router.get(
-    "/mine/assigned",
-    authorize(ROLES.DRIVER, ROLES.OFFICE),
-    Y.getMyAssignedShipments,
+  "/available",
+  authorize(ROLES.DRIVER, ROLES.OFFICE),
+  Y.getAvailableShipments,
+);
+router.get(
+  "/mine/assigned",
+  authorize(ROLES.DRIVER, ROLES.OFFICE),
+  Y.getMyAssignedShipments,
 );
 
 router.post(
