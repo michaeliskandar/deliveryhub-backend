@@ -59,7 +59,10 @@ export async function register(payload) {
                 phone,
                 password,
                 role,
-                status: role === "customer" ? "active" : "pending",
+                status:
+                    role === "customer" || role === "office"
+                        ? "active"
+                        : "pending",
             });
             await user.save({ session });
 
