@@ -12,7 +12,7 @@ import walletRoutes from "../modules/wallet/wallet.routes.js";
 import adminUsersRoutes from "../modules/admin/users/Admin.users.routes.js";
 import settingsRoutes from "../modules/admin/setting/Settings.routes.js";
 import adminOfficesRoutes from "../modules/admin/offices/Admin.offices.routes.js";
-
+import adminDashboardRoutes from "../modules/admin/dashboard/Admin.dashboard.routes.js";
 const router = Router();
 
 router.use("/auth", authRoutes);
@@ -28,4 +28,5 @@ router.use("/wallet", walletRoutes);
 router.use("/admin/users", adminUsersRoutes);
 router.use("/admin/setting", settingsRoutes);
 router.use("/admin/offices", adminOfficesRoutes);
+router.use("/admin/dashboard", adminDashboardRoutes);
 export default router;
