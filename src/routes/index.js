@@ -33,8 +33,6 @@
 
 // export default router;
 
-
-
 import { Router } from "express";
 import authRoutes from "../modules/auth/auth.routes.js";
 import captainDashboardRoutes from "../modules/captain-dashboard/captain-dashboard.routes.js";
@@ -57,7 +55,7 @@ import revenueRoutes from "../modules/revenue/revenue.routes.js";
 import adminUsersRoutes from "../modules/admin/users/Admin.users.routes.js";
 import settingsRoutes from "../modules/admin/setting/Settings.routes.js";
 import adminOfficesRoutes from "../modules/admin/offices/Admin.offices.routes.js";
-
+import adminDashboardRoutes from "../modules/admin/dashboard/admin.dashboard.routes.js";
 const router = Router();
 
 router.use("/auth", authRoutes);
@@ -79,7 +77,7 @@ router.use("/drivers", driversRoutes);
 router.use("/escrow", escrowRoutes);
 router.use("/revenue", revenueRoutes);
 router.use("/admin/users", adminUsersRoutes);
-router.use("/admin/setting", settingsRoutes);
+router.use("/admin/settings", settingsRoutes);
 router.use("/admin/offices", adminOfficesRoutes);
+router.use("/admin/dashboard", adminDashboardRoutes);
 export default router;
-
