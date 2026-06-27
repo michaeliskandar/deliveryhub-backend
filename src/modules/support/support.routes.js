@@ -1,8 +1,8 @@
 import { Router } from "express";
 import {
-    createTicket,
-    getMyTickets,
-    getTicketById,
+  createTicket,
+  getMyTickets,
+  getTicketById,
 } from "./support.controller.js";
 import { authenticate } from "../../shared/middleware/authenticate.js";
 import { validate } from "../../shared/middleware/validate.js";

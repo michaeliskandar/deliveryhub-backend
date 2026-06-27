@@ -5,23 +5,64 @@ import Office from "../../database/models/Office.js";
 import ApiError from "../../shared/utils/ApiError.js";
 import { SHIPMENT_STATUS } from "../../shared/constants/shipmentStatus.js";
 import trackingService from "../tracking/tracking.service.js";
+import Escrow from "../../database/models/Escrow.model.js";
+import { getCommissionRate } from "../../shared/utils/platformConfig.js";
 
 const getShipmentOffers = async (userId, shipmentId) => {
-  const shipment = await Shipment.findById(shipmentId);
+  const query = shipmentId.match(/^[0-9a-fA-F]{24}$/)
+    ? { _id: shipmentId }
+    : { trackingNumber: shipmentId.toUpperCase() };
+
+  const shipment = await Shipment.findOne(query);
   if (!shipment) throw new ApiError(404, "Shipment not found");
 
   if (shipment.customer.toString() !== userId.toString())
     throw new ApiError(403, "You are not allowed to view these offers");
 
-  const offers = await Offer.find({ shipment: shipmentId })
-    .populate("offerer", "fullName profileImage")
+  const offers = await Offer.find({ shipment: shipment._id })
     .sort({ price: 1 });
 
-  const bestValue = offers.find((o) => o.coverage === "Insured") || offers[0];
+  // Manually populate offerer details to resolve Driver/Office schemas
+  const populatedOffers = await Promise.all(
+    offers.map(async (offer) => {
+      const offerObj = offer.toObject();
+      let providerName = "Provider";
+      let providerAvatar = null;
+      let rating = 4.8;
+      let reviewCount = 120;
 
-  const result = offers.map((offer) => ({
-    ...offer.toObject(),
-    isBestValue: bestValue && offer._id.equals(bestValue._id),
+      if (offer.offererType === "Driver") {
+        const driver = await Driver.findById(offer.offerer).populate("user", "fullName profileImage");
+        if (driver && driver.user) {
+          providerName = driver.user.fullName;
+          providerAvatar = driver.user.profileImage;
+          rating = driver.rating || 4.8;
+        }
+      } else if (offer.offererType === "Office") {
+        const office = await Office.findById(offer.offerer).populate("user", "fullName profileImage");
+        if (office) {
+          providerName = office.businessName || (office.user && office.user.fullName) || "Logistics Office";
+          providerAvatar = office.user ? office.user.profileImage : null;
+        }
+      }
+
+      offerObj.offerer = {
+        _id: offer.offerer,
+        fullName: providerName,
+        profileImage: providerAvatar,
+        rating,
+        reviewCount,
+      };
+
+      return offerObj;
+    })
+  );
+
+  const bestValue = populatedOffers.find((o) => o.coverage === "Insured") || populatedOffers[0];
+
+  const result = populatedOffers.map((offer) => ({
+    ...offer,
+    isBestValue: bestValue && offer._id.toString() === bestValue._id.toString(),
   }));
 
   return result;
@@ -99,6 +140,7 @@ const acceptOffer = async (userId, offerId) => {
       captain: null,
       assignedOffice: offer.offerer,
       selectedOfferId: offer._id,
+      etaDescription: offer.estimatedDelivery,
     });
   } else {
     // Independent captain offer: assign the captain's User id directly.
@@ -108,12 +150,36 @@ const acceptOffer = async (userId, offerId) => {
       captain: driver ? driver.user : offer.offerer,
       assignedOffice: null,
       selectedOfferId: offer._id,
+      etaDescription: offer.estimatedDelivery,
     });
     await trackingService.initTracking(
       shipment._id,
       driver ? driver.user : offer.offerer,
     );
   }
+
+  const commissionRate = await getCommissionRate();
+  const commissionAmount = Math.round(offer.price * (commissionRate / 100));
+  const netAmount = offer.price - commissionAmount;
+
+  let providerUser = null;
+  if (offer.offererType === "Office") {
+    const officeDoc = await Office.findById(offer.offerer).select("user");
+    providerUser = officeDoc ? officeDoc.user : null;
+  } else {
+    const driverDoc = await Driver.findById(offer.offerer).select("user");
+    providerUser = driverDoc ? driverDoc.user : null;
+  }
+
+  await Escrow.create({
+    shipment: shipment._id,
+    customer: shipment.customer,
+    driver: providerUser,
+    amount: offer.price,
+    commissionRate,
+    commissionAmount,
+    netAmount,
+  });
 
   return offer;
 };
