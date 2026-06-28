@@ -14,6 +14,7 @@ const documentSchema = new mongoose.Schema(
             required: true,
         },
         documentUrl: { type: String, required: true },
+        documentPublicId: { type: String, default: null },
         uploadedAt: { type: Date, default: Date.now },
     },
     { _id: false },
