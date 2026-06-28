@@ -265,6 +265,13 @@ const getCaptainDeliveries = async (officeUserId, captainId, { page, limit } = {
     });
 };
 
+const updateOfficeAvailability = async (userId, status) => {
+    const office = await resolveOffice(userId);
+    office.status = status;
+    await office.save();
+    return office;
+};
+
 export default {
     createCaptain,
     getCaptains,
@@ -277,4 +284,5 @@ export default {
     getCaptainRatings,
     getCaptainOrders,
     getCaptainDeliveries,
+    updateOfficeAvailability,
 };

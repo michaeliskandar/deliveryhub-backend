@@ -29,7 +29,14 @@ const getNotificationsForUser = async (userId, { status, page, limit }) => {
     if (status === "unread") query.isRead = false;
 
     const [notifications, total] = await Promise.all([
-        Notification.find(query).sort({ createdAt: -1 }).skip(skip).limit(take),
+        Notification.find(query)
+            .sort({ createdAt: -1 })
+            .populate({
+                path: "relatedShipment",
+                populate: { path: "captain", select: "fullName" }
+            })
+            .skip(skip)
+            .limit(take),
         Notification.countDocuments(query),
     ]);
 

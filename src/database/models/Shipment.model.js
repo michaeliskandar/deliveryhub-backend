@@ -82,6 +82,11 @@ const shipmentSchema = new mongoose.Schema(
       default: null,
     },
 
+    price: {
+      type: Number,
+      default: null,
+    },
+
     captain: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

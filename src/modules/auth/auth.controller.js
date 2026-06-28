@@ -56,8 +56,23 @@ export const changePassword = asyncHandler(async (req, res) => {
   return ApiResponse.send(res, 200, result.message);
 });
 
+import Driver from "../../database/models/Driver.js";
+import Office from "../../database/models/Office.js";
+
 export const getMe = asyncHandler(async (req, res) => {
+  const userJson = req.user.toSafeJSON();
+  if (req.user.role === "driver") {
+    const driver = await Driver.findOne({ user: req.user._id });
+    if (driver) {
+      userJson.driverStatus = driver.status;
+    }
+  } else if (req.user.role === "office") {
+    const office = await Office.findOne({ user: req.user._id });
+    if (office) {
+      userJson.officeStatus = office.status || "available";
+    }
+  }
   return ApiResponse.send(res, 200, "Current user", {
-    user: req.user.toSafeJSON(),
+    user: userJson,
   });
 });

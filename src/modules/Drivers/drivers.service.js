@@ -41,4 +41,19 @@ const updateDriverStatus = async (driverId, status) => {
   return driver;
 };
 
-export default { getAllDrivers, updateDriverStatus };
+const updateDriverAvailability = async (userId, status) => {
+  const driver = await Driver.findOne({ user: userId }).populate("user");
+  if (!driver) throw ApiError.notFound("Driver profile not found");
+
+  if (!driver.isActive) {
+    throw ApiError.badRequest("Cannot change status of a deactivated driver");
+  }
+
+  driver.status = status;
+  driver.lastActiveAt = new Date();
+  await driver.save();
+
+  return driver;
+};
+
+export default { getAllDrivers, updateDriverStatus, updateDriverAvailability };

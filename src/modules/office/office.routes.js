@@ -9,6 +9,7 @@ import {
     captainStatusSchema,
     captainListQuerySchema,
     idParamSchema,
+    updateOfficeAvailabilitySchema,
 } from "./office.validation.js";
 import {
     createCaptain,
@@ -22,6 +23,7 @@ import {
     getCaptainRatings,
     getCaptainOrders,
     getCaptainDeliveries,
+    updateOfficeAvailability,
 } from "./office.controller.js";
 import {
     getPendingOffers,
@@ -76,6 +78,12 @@ router.patch(
     validate(idParamSchema, "params"),
     validate(captainStatusSchema),
     updateCaptainStatus,
+);
+
+router.patch(
+    "/availability",
+    validate(updateOfficeAvailabilitySchema),
+    updateOfficeAvailability,
 );
 
 router.get("/dashboard", getDashboard);

@@ -272,6 +272,12 @@ const initTracking = async (shipmentId, captainId) => {
     milestones: [{ status: TRACKING_STATUS.ASSIGNED, timestamp: new Date() }],
   });
 
+  const driver = await Driver.findOne({ user: captainId });
+  if (driver) {
+    driver.status = "busy";
+    await driver.save();
+  }
+
   return tracking;
 };
 
@@ -419,6 +425,14 @@ const updateStatus = async (shipmentId, captainId, { status, note }) => {
 
   await Shipment.findByIdAndUpdate(resolvedId, { status });
 
+  if (status === TRACKING_STATUS.DELIVERED || status === TRACKING_STATUS.CANCELLED) {
+    const driver = await Driver.findOne({ user: captainId });
+    if (driver) {
+      driver.status = "available";
+      await driver.save();
+    }
+  }
+
   getIO().to(`shipment:${resolvedId}`).emit("statusUpdate", {
     shipmentId: resolvedId,
     status,
@@ -428,15 +442,30 @@ const updateStatus = async (shipmentId, captainId, { status, note }) => {
 
   const copy = STATUS_NOTIFICATION_COPY[status];
   if (copy) {
-    const shipment = await Shipment.findById(resolvedId).select("customer");
-    if (shipment?.customer) {
-      await notificationsService.createNotification({
-        userId: shipment.customer,
-        type: copy.type,
-        title: copy.title,
-        message: note || `${copy.title} for your shipment.`,
-        relatedShipmentId: resolvedId,
-      });
+    const shipment = await Shipment.findById(resolvedId).select("customer assignedOffice");
+    if (shipment) {
+      if (shipment.customer) {
+        await notificationsService.createNotification({
+          userId: shipment.customer,
+          type: copy.type,
+          title: copy.title,
+          message: note || `${copy.title} for your shipment.`,
+          relatedShipmentId: resolvedId,
+        });
+      }
+      if (shipment.assignedOffice) {
+        const OfficeModel = (await import("../../database/models/Office.js")).default;
+        const officeDoc = await OfficeModel.findById(shipment.assignedOffice).select("user");
+        if (officeDoc && officeDoc.user) {
+          await notificationsService.createNotification({
+            userId: officeDoc.user,
+            type: copy.type,
+            title: `Driver Update: ${copy.title}`,
+            message: note || `Driver updated shipment status to: ${copy.title}.`,
+            relatedShipmentId: resolvedId,
+          });
+        }
+      }
     }
   }
 

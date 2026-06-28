@@ -19,6 +19,7 @@ const formatShipment = (shipment) => ({
     status: shipment.status,
     captain: shipment.captain ?? null,
     createdAt: shipment.createdAt,
+    price: shipment.price,
 });
 
 // Shipments whose winning offer belongs to this office but haven't been
@@ -87,6 +88,28 @@ const assignToCaptain = async (officeUserId, shipmentId, captainId) => {
 
     await trackingService.initTracking(shipment._id, driver.user).catch(() => null);
 
+    try {
+        const notificationsService = (await import("../notifications/notifications.service.js")).default;
+        // Notify Captain
+        await notificationsService.createNotification({
+            userId: driver.user,
+            type: "captain_assigned",
+            title: "New Shipment Assigned",
+            message: `You have been assigned to deliver shipment #${shipment.trackingNumber}.`,
+            relatedShipmentId: shipment._id,
+        });
+        // Notify Customer
+        await notificationsService.createNotification({
+            userId: shipment.customer,
+            type: "captain_assigned",
+            title: "Captain Assigned",
+            message: `A captain has been assigned to deliver your shipment #${shipment.trackingNumber}.`,
+            relatedShipmentId: shipment._id,
+        });
+    } catch (err) {
+        console.error("Failed to emit assignment notifications:", err);
+    }
+
     return formatShipment(shipment);
 };
 
@@ -112,6 +135,28 @@ const reassignToCaptain = async (officeUserId, shipmentId, captainId) => {
     newDriver.status = CAPTAIN_STATUS.BUSY;
     newDriver.lastActiveAt = new Date();
     await newDriver.save();
+
+    try {
+        const notificationsService = (await import("../notifications/notifications.service.js")).default;
+        // Notify Captain
+        await notificationsService.createNotification({
+            userId: newDriver.user,
+            type: "captain_assigned",
+            title: "New Shipment Assigned (Reassigned)",
+            message: `You have been assigned to deliver shipment #${shipment.trackingNumber}.`,
+            relatedShipmentId: shipment._id,
+        });
+        // Notify Customer
+        await notificationsService.createNotification({
+            userId: shipment.customer,
+            type: "captain_assigned",
+            title: "Captain Reassigned",
+            message: `A new captain has been assigned to deliver your shipment #${shipment.trackingNumber}.`,
+            relatedShipmentId: shipment._id,
+        });
+    } catch (err) {
+        console.error("Failed to emit reassignment notifications:", err);
+    }
 
     return formatShipment(shipment);
 };

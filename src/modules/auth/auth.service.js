@@ -146,7 +146,19 @@ export async function register(payload) {
   );
   // ===============================================
 
-  return { user: user.toSafeJSON(), tokens };
+  const userJson = user.toSafeJSON();
+  if (user.role === "driver") {
+    const driver = await Driver.findOne({ user: user._id });
+    if (driver) {
+      userJson.driverStatus = driver.status;
+    }
+  } else if (user.role === "office") {
+    const office = await Office.findOne({ user: user._id });
+    if (office) {
+      userJson.officeStatus = office.status || "available";
+    }
+  }
+  return { user: userJson, tokens };
 }
 
 export async function login({ emailOrPhone, password }) {
@@ -171,7 +183,20 @@ export async function login({ emailOrPhone, password }) {
   user.lastLoginAt = new Date();
   await user.save();
 
-  return { user: user.toSafeJSON(), tokens };
+  const userJsonLogin = user.toSafeJSON();
+  if (user.role === "driver") {
+    const driver = await Driver.findOne({ user: user._id });
+    if (driver) {
+      userJsonLogin.driverStatus = driver.status;
+    }
+  } else if (user.role === "office") {
+    const office = await Office.findOne({ user: user._id });
+    if (office) {
+      userJsonLogin.officeStatus = office.status || "available";
+    }
+  }
+
+  return { user: userJsonLogin, tokens };
 }
 
 export async function adminLogin({ emailOrPhone, password }) {
