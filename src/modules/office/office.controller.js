@@ -124,3 +124,15 @@ export const getCaptainDeliveries = async (req, res, next) => {
         next(err);
     }
 };
+
+export const updateOfficeAvailability = async (req, res, next) => {
+    try {
+        const office = await officeService.updateOfficeAvailability(
+            req.user._id,
+            req.body.status
+        );
+        return res.status(200).json(ApiResponse.success(office, "Office status updated"));
+    } catch (err) {
+        next(err);
+    }
+};

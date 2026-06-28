@@ -36,3 +36,7 @@ export const captainListQuerySchema = Joi.object({
     page: Joi.number().integer().min(1).optional(),
     limit: Joi.number().integer().min(1).max(50).optional(),
 });
+
+export const updateOfficeAvailabilitySchema = Joi.object({
+    status: Joi.string().valid("available", "offline").required(),
+});

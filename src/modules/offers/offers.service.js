@@ -72,13 +72,13 @@ const resolveOfferer = async (userId, role) => {
   if (role === "driver") {
     const driver = await Driver.findOne({ user: userId });
     if (!driver) throw new ApiError(404, "Driver profile not found");
-    return { offererType: "Driver", offererId: driver._id };
+    return { offererType: "Driver", offererId: driver._id, status: driver.status };
   }
 
   if (role === "office") {
     const office = await Office.findOne({ user: userId });
     if (!office) throw new ApiError(404, "Office profile not found");
-    return { offererType: "Office", offererId: office._id };
+    return { offererType: "Office", offererId: office._id, status: office.status };
   }
 
   throw new ApiError(403, "Only drivers and offices can create offers");
@@ -87,7 +87,11 @@ const resolveOfferer = async (userId, role) => {
 const createOffer = async (userId, role, offerData) => {
   const { shipmentId, price, estimatedDelivery, coverage, description } =
     offerData;
-  const { offererType, offererId } = await resolveOfferer(userId, role);
+  const { offererType, offererId, status } = await resolveOfferer(userId, role);
+
+  if (status === "offline") {
+    throw new ApiError(403, "You cannot make offers while offline. Please go online first.");
+  }
 
   const shipment = await Shipment.findById(shipmentId);
   if (!shipment) throw new ApiError(404, "Shipment not found");
@@ -110,6 +114,28 @@ const createOffer = async (userId, role, offerData) => {
     coverage,
     description,
   });
+
+  try {
+    let providerName = "A provider";
+    if (offererType === "Driver") {
+      const driver = await Driver.findById(offererId).populate("user", "fullName");
+      if (driver && driver.user) providerName = driver.user.fullName;
+    } else if (offererType === "Office") {
+      const office = await Office.findById(offererId);
+      if (office) providerName = office.businessName || "Logistics Office";
+    }
+
+    const notificationsService = (await import("../notifications/notifications.service.js")).default;
+    await notificationsService.createNotification({
+      userId: shipment.customer,
+      type: "offer_received",
+      title: "New Offer Received",
+      message: `${providerName} sent a new offer of EGP ${price} for shipment #${shipment.trackingNumber}.`,
+      relatedShipmentId: shipment._id,
+    });
+  } catch (err) {
+    console.error("Failed to notify customer of offer:", err);
+  }
 
   return offer;
 };
@@ -141,6 +167,7 @@ const acceptOffer = async (userId, offerId) => {
       assignedOffice: offer.offerer,
       selectedOfferId: offer._id,
       etaDescription: offer.estimatedDelivery,
+      price: offer.price,
     });
   } else {
     // Independent captain offer: assign the captain's User id directly.
@@ -151,6 +178,7 @@ const acceptOffer = async (userId, offerId) => {
       assignedOffice: null,
       selectedOfferId: offer._id,
       etaDescription: offer.estimatedDelivery,
+      price: offer.price,
     });
     await trackingService.initTracking(
       shipment._id,
@@ -180,6 +208,21 @@ const acceptOffer = async (userId, offerId) => {
     commissionAmount,
     netAmount,
   });
+
+  try {
+    if (providerUser) {
+      const notificationsService = (await import("../notifications/notifications.service.js")).default;
+      await notificationsService.createNotification({
+        userId: providerUser,
+        type: "offer_accepted",
+        title: "Offer Accepted!",
+        message: `Your offer of EGP ${offer.price} for shipment #${shipment.trackingNumber} has been accepted.`,
+        relatedShipmentId: shipment._id,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to notify provider of accepted offer:", err);
+  }
 
   return offer;
 };

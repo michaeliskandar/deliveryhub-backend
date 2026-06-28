@@ -97,6 +97,28 @@ const createShipment = async (customerId, body) => {
     estimatedPriceMax: price ? Math.round(price * 1.1) : estimatedPriceMax,
   });
 
+  try {
+    const notificationsService = (await import("../notifications/notifications.service.js")).default;
+    const [drivers, offices] = await Promise.all([
+      Driver.find({ status: { $ne: "offline" } }).select("user"),
+      Office.find({ status: { $ne: "offline" } }).select("user"),
+    ]);
+
+    const providers = [...drivers.map(d => d.user), ...offices.map(o => o.user)].filter(Boolean);
+
+    for (const userId of providers) {
+      await notificationsService.createNotification({
+        userId,
+        type: "new_shipment",
+        title: "New Shipment Request Available",
+        message: `A new package is waiting for offers from ${pickupAddress} to ${deliveryAddress}.`,
+        relatedShipmentId: shipment._id,
+      });
+    }
+  } catch (err) {
+    console.error("Failed to emit shipment notifications:", err);
+  }
+
   return shipment;
 };
 

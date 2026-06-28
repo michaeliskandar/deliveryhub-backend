@@ -29,3 +29,17 @@ export const updateDriverStatus = async (req, res, next) => {
     next(err);
   }
 };
+
+export const updateDriverAvailability = async (req, res, next) => {
+  try {
+    const result = await driverService.updateDriverAvailability(
+      req.user._id,
+      req.body.status,
+    );
+    return res
+      .status(200)
+      .json(ApiResponse.success(result, "Driver availability updated"));
+  } catch (err) {
+    next(err);
+  }
+};
