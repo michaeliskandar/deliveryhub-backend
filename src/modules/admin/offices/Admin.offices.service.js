@@ -28,71 +28,80 @@ const formatOffice = (office, user, ordersCount = 0, rating = 0) => ({
 });
 
 /**
- * Office rating/orders are not stored directly anywhere — an Office has no
- * reviews or shipments of its own. They are derived through its captains:
+ * Office rating is now derived directly from reviews where the office
+ * itself is the reviewee:
+ *   Review.reviewee === office.user (the Office's own User._id)
+ *   Review.revieweeType === "Office"
+ *
+ * Orders are still derived through the office's captains (drivers), since
+ * shipments are linked to a captain (driver), not to an office directly:
  *   Office._id -> Driver.officeId -> Driver.user (captain's User._id)
- *   orders  = count of Shipments where captain is one of those user ids
- *   rating  = average of all Review.rating where reviewee is one of those user ids
- *             (averaged across all individual reviews combined, not per-captain)
+ *   orders = count of Shipments where captain is one of those user ids
  *
  * This builds one lookup map keyed by officeId so a whole page of offices
  * can be enriched with a constant number of queries instead of N+1.
  */
-const buildOfficeMetricsMap = async (officeIds) => {
-    const drivers = await Driver.find({ officeId: { $in: officeIds } })
-        .select("officeId user")
-        .lean();
-
-    if (drivers.length === 0) return {};
-
-    const driverUserIds = drivers.map((d) => d.user);
-
-    const [shipmentCounts, reviews] = await Promise.all([
-        Shipment.aggregate([
-            { $match: { captain: { $in: driverUserIds } } },
-            { $group: { _id: "$captain", count: { $sum: 1 } } },
-        ]),
-        Review.find({ reviewee: { $in: driverUserIds } })
+const buildOfficeMetricsMap = async (officeIds, officeUserIds) => {
+    const [drivers, officeReviews] = await Promise.all([
+        Driver.find({ officeId: { $in: officeIds } })
+            .select("officeId user")
+            .lean(),
+        Review.find({
+            reviewee: { $in: officeUserIds },
+            revieweeType: "Office",
+        })
             .select("reviewee rating")
             .lean(),
     ]);
 
+    const driverUserIds = drivers.map((d) => d.user);
+
+    const shipmentCounts = driverUserIds.length
+        ? await Shipment.aggregate([
+              { $match: { captain: { $in: driverUserIds } } },
+              { $group: { _id: "$captain", count: { $sum: 1 } } },
+          ])
+        : [];
+
     const ordersByUser = Object.fromEntries(
         shipmentCounts.map((s) => [s._id.toString(), s.count]),
     );
-    const ratingsByUser = {};
-    reviews.forEach((r) => {
-        const key = r.reviewee.toString();
-        if (!ratingsByUser[key]) ratingsByUser[key] = [];
-        ratingsByUser[key].push(r.rating);
-    });
 
-    const metricsByOffice = {};
+    // orders per office, via its drivers
+    const ordersByOffice = {};
     drivers.forEach(({ officeId, user: userId }) => {
         const officeKey = officeId.toString();
         const userKey = userId.toString();
-        if (!metricsByOffice[officeKey]) {
-            metricsByOffice[officeKey] = { orders: 0, ratings: [] };
-        }
-        metricsByOffice[officeKey].orders += ordersByUser[userKey] ?? 0;
-        if (ratingsByUser[userKey]) {
-            metricsByOffice[officeKey].ratings.push(...ratingsByUser[userKey]);
-        }
+        ordersByOffice[officeKey] =
+            (ordersByOffice[officeKey] ?? 0) + (ordersByUser[userKey] ?? 0);
+    });
+
+    // ratings per office, via reviews made directly against the office's own user id
+    const ratingsByOfficeUser = {};
+    officeReviews.forEach((r) => {
+        const key = r.reviewee.toString();
+        if (!ratingsByOfficeUser[key]) ratingsByOfficeUser[key] = [];
+        ratingsByOfficeUser[key].push(r.rating);
     });
 
     const result = {};
-    Object.entries(metricsByOffice).forEach(
-        ([officeKey, { orders, ratings }]) => {
-            const avgRating = ratings.length
-                ? Number(
-                      (
-                          ratings.reduce((a, b) => a + b, 0) / ratings.length
-                      ).toFixed(1),
-                  )
-                : 0;
-            result[officeKey] = { orders, rating: avgRating };
-        },
-    );
+    officeIds.forEach((officeId, idx) => {
+        const officeKey = officeId.toString();
+        const officeUserKey = officeUserIds[idx].toString();
+        const ratings = ratingsByOfficeUser[officeUserKey] ?? [];
+        const avgRating = ratings.length
+            ? Number(
+                  (ratings.reduce((a, b) => a + b, 0) / ratings.length).toFixed(
+                      1,
+                  ),
+              )
+            : 0;
+
+        result[officeKey] = {
+            orders: ordersByOffice[officeKey] ?? 0,
+            rating: avgRating,
+        };
+    });
 
     return result;
 };
@@ -145,7 +154,11 @@ const getOffices = async ({ search, status, page = 1, limit = 20 }) => {
     ]);
 
     const officeIds = offices.map((o) => o._id);
-    const metricsByOffice = await buildOfficeMetricsMap(officeIds);
+    const officeUserIds = offices.map((o) => o.user);
+    const metricsByOffice = await buildOfficeMetricsMap(
+        officeIds,
+        officeUserIds,
+    );
 
     return {
         offices: offices.map((o) => {
@@ -174,8 +187,8 @@ const getStats = async () => {
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
-    const [total, active, suspended, newThisMonth, officeIds] =
-        await Promise.all([
+    const [total, active, suspended, newThisMonth, offices] = await Promise.all(
+        [
             User.countDocuments({ role: "office" }),
             User.countDocuments({ role: "office", status: "active" }),
             User.countDocuments({ role: "office", status: "suspended" }),
@@ -183,12 +196,16 @@ const getStats = async () => {
                 role: "office",
                 createdAt: { $gte: oneMonthAgo },
             }),
-            Office.find().select("_id").lean(),
-        ]);
+            Office.find().select("_id user").lean(),
+        ],
+    );
 
-    // Platform-wide average rating: derived across every office's captains.
+    // Platform-wide average rating: derived across every office's own reviews.
+    const officeIds = offices.map((o) => o._id);
+    const officeUserIds = offices.map((o) => o.user);
     const metricsByOffice = await buildOfficeMetricsMap(
-        officeIds.map((o) => o._id),
+        officeIds,
+        officeUserIds,
     );
     const allRatings = Object.values(metricsByOffice)
         .map((m) => m.rating)
@@ -219,7 +236,10 @@ const getOfficeById = async (id) => {
         .lean();
     if (!user) throw new ApiError(404, "Office user not found");
 
-    const metricsByOffice = await buildOfficeMetricsMap([office._id]);
+    const metricsByOffice = await buildOfficeMetricsMap(
+        [office._id],
+        [office.user],
+    );
     const metrics = metricsByOffice[office._id.toString()] ?? {
         orders: 0,
         rating: 0,
