@@ -1,5 +1,6 @@
 import Shipment from "../../../database/models/Shipment.model.js";
 import User from "../../../database/models/User.model.js";
+import Office from "../../../database/models/Office.js";
 import Escrow from "../../../database/models/Escrow.model.js";
 import Setting from "../../../database/models/Setting.model.js";
 import Support from "../../../database/models/Support.model.js";
@@ -227,10 +228,21 @@ const getEscrowStatuses = async () => {
     }));
 };
 
-// ── Recent users ─────────────────────────────────────────────────────────
+// ── Recent users (customers + drivers + offices) ──────────────────────────
 
+/**
+ * Orders are computed differently depending on role, mirroring the same
+ * logic used in Admin.offices.service.js:
+ *   - customer/driver: count of Shipments where Shipment.customer === user._id
+ *   - office: count of Shipments where Shipment.assignedOffice === office._id
+ *             (NOT office.user — assignedOffice points to the Office document,
+ *             not the User document, so office users need an extra lookup
+ *             from User._id -> Office._id before counting shipments)
+ */
 const getRecentUsers = async () => {
-    const users = await User.find({ role: { $in: ["customer", "driver"] } })
+    const users = await User.find({
+        role: { $in: ["customer", "driver", "office"] },
+    })
         .sort({ createdAt: -1 })
         .limit(5)
         .select("fullName email role status createdAt")
@@ -238,15 +250,57 @@ const getRecentUsers = async () => {
 
     if (users.length === 0) return [];
 
-    const userIds = users.map((u) => u._id);
-    const orderCounts = await Shipment.aggregate([
-        { $match: { customer: { $in: userIds } } },
-        { $group: { _id: "$customer", count: { $sum: 1 } } },
+    const customerDriverIds = users
+        .filter((u) => u.role !== "office")
+        .map((u) => u._id);
+
+    const officeUserIds = users
+        .filter((u) => u.role === "office")
+        .map((u) => u._id);
+
+    const [orderCounts, offices] = await Promise.all([
+        customerDriverIds.length
+            ? Shipment.aggregate([
+                  { $match: { customer: { $in: customerDriverIds } } },
+                  { $group: { _id: "$customer", count: { $sum: 1 } } },
+              ])
+            : [],
+        officeUserIds.length
+            ? Office.find({ user: { $in: officeUserIds } })
+                  .select("user")
+                  .lean()
+            : [],
     ]);
 
     const ordersByUser = Object.fromEntries(
         orderCounts.map((o) => [o._id.toString(), o.count]),
     );
+
+    // map User._id -> Office._id, since assignedOffice points to the Office doc
+    const officeIdByUserId = Object.fromEntries(
+        offices.map((o) => [o.user.toString(), o._id]),
+    );
+    const officeIds = offices.map((o) => o._id);
+
+    const officeOrderCounts = officeIds.length
+        ? await Shipment.aggregate([
+              { $match: { assignedOffice: { $in: officeIds } } },
+              { $group: { _id: "$assignedOffice", count: { $sum: 1 } } },
+          ])
+        : [];
+
+    const ordersByOffice = Object.fromEntries(
+        officeOrderCounts.map((o) => [o._id.toString(), o.count]),
+    );
+
+    const getOrdersForUser = (u) => {
+        if (u.role === "office") {
+            const officeId = officeIdByUserId[u._id.toString()];
+            if (!officeId) return 0;
+            return ordersByOffice[officeId.toString()] ?? 0;
+        }
+        return ordersByUser[u._id.toString()] ?? 0;
+    };
 
     return users.map((u) => ({
         email: u.email,
@@ -258,7 +312,7 @@ const getRecentUsers = async () => {
             .toUpperCase(),
         name: u.fullName,
         role: u.role,
-        orders: ordersByUser[u._id.toString()] ?? 0,
+        orders: getOrdersForUser(u),
         joined: new Date(u.createdAt).toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
