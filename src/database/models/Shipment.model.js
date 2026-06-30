@@ -147,8 +147,17 @@ const shipmentSchema = new mongoose.Schema(
 
 shipmentSchema.pre("save", async function (next) {
   if (!this.trackingNumber) {
-    const count = await mongoose.model("Shipment").countDocuments();
-    this.trackingNumber = `SC-${String(count + 1).padStart(5, "0")}`;
+    let trackingNumber;
+    let exists = true;
+    while (exists) {
+      const randomDigits = Math.floor(10000 + Math.random() * 90000);
+      trackingNumber = `SC-${randomDigits}`;
+      const found = await mongoose.model("Shipment").findOne({ trackingNumber });
+      if (!found) {
+        exists = false;
+      }
+    }
+    this.trackingNumber = trackingNumber;
   }
   next();
 });

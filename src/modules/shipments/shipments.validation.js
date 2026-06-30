@@ -54,6 +54,9 @@ export const createShipmentSchema = Joi.object({
     "number.base": "validation.price.number",
     "number.positive": "validation.price.positive",
   }),
+
+  estimatedPriceMin: Joi.number().positive().optional(),
+  estimatedPriceMax: Joi.number().positive().optional(),
 });
 
 export const updateShipmentStatusSchema = Joi.object({

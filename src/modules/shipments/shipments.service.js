@@ -68,6 +68,8 @@ const createShipment = async (customerId, body) => {
     scheduledDate,
     notes,
     price,
+    estimatedPriceMin: bodyMin,
+    estimatedPriceMax: bodyMax,
   } = body;
 
   const [pickupCoords, deliveryCoords] = await Promise.all([
@@ -82,7 +84,10 @@ const createShipment = async (customerId, body) => {
     deliverySpeed,
   );
 
-  const cost = price || estimatedPriceMin || 0;
+  const finalMin = bodyMin || (price ? Math.round(price * 0.9) : estimatedPriceMin);
+  const finalMax = bodyMax || (price ? Math.round(price * 1.1) : estimatedPriceMax);
+
+  const cost = price || finalMin || 0;
   const wallet = await walletService.getWalletBalance(customerId, "customer");
   if (wallet.balance < cost) {
     throw new ApiError(400, "Insufficient wallet balance to cover the shipment cost. Please top up your wallet.");
@@ -100,8 +105,9 @@ const createShipment = async (customerId, body) => {
     scheduledDate: scheduledDate ?? null,
     notes: notes ?? null,
     distanceKm: Math.round(distanceKm * 10) / 10,
-    estimatedPriceMin: price ? Math.round(price * 0.9) : estimatedPriceMin,
-    estimatedPriceMax: price ? Math.round(price * 1.1) : estimatedPriceMax,
+    estimatedPriceMin: finalMin,
+    estimatedPriceMax: finalMax,
+    price: price ?? null,
   });
 
   try {
@@ -299,7 +305,7 @@ const acceptAssignment = async (shipmentId, captainUserId) => {
   }
 
   shipment.captainStatus = "accepted";
-  shipment.status = SHIPMENT_STATUS.ASSIGNED;
+  shipment.status = SHIPMENT_STATUS.CAPTAIN_ASSIGNMENT;
   await shipment.save();
 
   const driver = await Driver.findOne({ user: captainUserId });
