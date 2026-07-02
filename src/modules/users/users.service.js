@@ -1,6 +1,8 @@
 import User from "../../database/models/User.model.js";
 import ApiError from "../../shared/utils/ApiError.js";
 
+import { uploadToCloudinary } from "../../shared/utils/cloudinary.js";
+
 const getProfile = async (userId) => {
     const user = await User.findById(userId);
     if (!user) throw new ApiError(404, "User not found");
@@ -12,8 +14,16 @@ const updateProfile = async (userId, updateData) => {
     if (!user) throw new ApiError(404, "User not found");
 
     const fullName = updateData.fullName || updateData.name;
-    const profileImage = updateData.profileImage || updateData.avatarUrl;
+    let profileImage = updateData.profileImage || updateData.avatarUrl;
     const phone = updateData.phone;
+
+    if (profileImage && profileImage.startsWith("data:image")) {
+        try {
+            profileImage = await uploadToCloudinary(profileImage);
+        } catch (err) {
+            throw new ApiError(400, "Failed to upload profile image to cloud");
+        }
+    }
 
     if (fullName !== undefined) user.fullName = fullName;
     if (phone !== undefined) user.phone = phone;
@@ -22,6 +32,7 @@ const updateProfile = async (userId, updateData) => {
     await user.save();
     return user;
 };
+
 
 const registerPushToken = async (userId, token) => {
     await User.updateOne({ _id: userId }, { $addToSet: { pushTokens: token } });
