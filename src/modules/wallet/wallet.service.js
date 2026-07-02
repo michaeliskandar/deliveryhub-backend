@@ -140,8 +140,17 @@ const getOrCreateWallet = async (userId, role, session = null) => {
 
     let wallet = await Wallet.findOne({ userId }).session(session ?? null);
     if (!wallet) {
-        const created = await Wallet.create([{ userId, userType }], options);
-        wallet = Array.isArray(created) ? created[0] : created;
+        try {
+            const created = await Wallet.create([{ userId, userType }], options);
+            wallet = Array.isArray(created) ? created[0] : created;
+        } catch (error) {
+            if (error.code === 11000) {
+                wallet = await Wallet.findOne({ userId }).session(session ?? null);
+                if (!wallet) throw error;
+            } else {
+                throw error;
+            }
+        }
     }
     return wallet;
 };
